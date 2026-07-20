@@ -1,309 +1,870 @@
-// ============================================
-// CONSTANTES DE CONFIGURACIÓN
-// ============================================
-const PASSWORD = "Lquispe2026"; // Contraseña global, solo se cambia editando aquí
-const SHEET_MAESTRO = "DATOS MAESTROS";
-const SHEET_NUEVOS = "Nuevos"; // Segunda pestaña para códigos nuevos
-const SHEET_HISTORIAL = "Historial"; // Tercera pestaña
-
-// ============================================
-// 1. INTERFAZ WEB: LOGIN Y APLICACIÓN PRINCIPAL
-// ============================================
-function doGet(e) {
-  // Si no se ha pasado un token de sesión, muestra el login
-  const html = HtmlService.createTemplateFromFile('Login');
-  return html.evaluate()
-    .setTitle('Control de Inventario')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-}
-
-// Archivo Login.html
-// (crea un archivo HTML en el proyecto con el nombre "Login")
-// -----------------------------------------------------
-function getLoginHtml() {
-  return `
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-  <base target="_top">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; height: 100vh; }
-    .login-box { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); width: 100%; max-width: 360px; }
-    h2 { text-align: center; color: #1a73e8; margin-bottom: 20px; }
-    input[type="password"] { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; font-size: 16px; }
-    button { width: 100%; padding: 12px; background: #1a73e8; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; }
-    .error { color: red; text-align: center; margin-top: 10px; display: none; }
-  </style>
-</head>
-<body>
-  <div class="login-box">
-    <h2>Control de Inventario</h2>
-    <input type="password" id="pwd" placeholder="Contraseña" autofocus onkeydown="if(event.key==='Enter') verificar()">
-    <button onclick="verificar()">Ingresar</button>
-    <div class="error" id="error">Contraseña incorrecta</div>
-  </div>
-  <script>
-    function verificar() {
-      const pwd = document.getElementById('pwd').value;
-      google.script.run
-        .withSuccessHandler(function(ok) {
-          if (ok) window.open('<?= ScriptApp.getService().getUrl() ?>?auth=ok', '_self');
-          else document.getElementById('error').style.display = 'block';
-        })
-        .verificarPassword(pwd);
-    }
-  </script>
-</body>
-</html>`;
-}
-
-function verificarPassword(pwd) {
-  return pwd === PASSWORD;
-}
-
-// La función doGet protege el acceso: si no viene el parámetro auth, muestra el login.
-function doGetReal(e) {
-  if (e.parameter.auth !== 'ok') {
-    const html = HtmlService.createHtmlOutput(getLoginHtml())
-      .setTitle('Login')
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-    return html;
-  }
-  // Si la contraseña fue aceptada, cargar la aplicación principal
-  const html = HtmlService.createTemplateFromFile('Index');
-  return html.evaluate()
-    .setTitle('Gestión de Inventario')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-}
-
-// Archivo Index.html (vista principal después del login)
-// (crear archivo HTML llamado "Index")
-// -----------------------------------------------------
-function getIndexHtml() {
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <base target="_top">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; margin: 0; padding: 15px; }
-    .header { background: #1a73e8; color: white; padding: 15px; text-align: center; border-radius: 10px; margin-bottom: 20px; }
-    .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
-    #codigo { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 16px; }
-    button { background: #1a73e8; color: white; border: none; padding: 12px 20px; border-radius: 6px; font-size: 16px; cursor: pointer; }
-    #resultado { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); min-height: 200px; }
-    .error { color: red; margin-top: 10px; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <h1>Control de Inventario</h1>
-  </div>
-  <div class="search-box">
-    <input type="text" id="codigo" placeholder="Ingrese código (ej: E178)">
-    <button onclick="buscar()">Buscar</button>
-    <button onclick="limpiar()">Nuevo</button>
-    <button onclick="exportarHistorial()">Exportar historial</button>
-  </div>
-  <div id="resultado">
-    <p>Utilice el buscador para consultar o agregar activos.</p>
-  </div>
-  <div class="error" id="error"></div>
-  <script>
-    function buscar() {
-      const cod = document.getElementById('codigo').value.trim();
-      if (!cod) return;
-      google.script.run
-        .withSuccessHandler(mostrarResultado)
-        .withFailureHandler(mostrarError)
-        .procesarBusqueda(cod);
-    }
-    function limpiar() {
-      document.getElementById('codigo').value = 'E';
-      document.getElementById('codigo').focus();
-      document.getElementById('resultado').innerHTML = '';
-    }
-    function mostrarResultado(html) {
-      document.getElementById('resultado').innerHTML = html;
-    }
-    function mostrarError(err) {
-      document.getElementById('error').textContent = err.message;
-    }
-    function exportarHistorial() {
-      google.script.run
-        .withSuccessHandler(function(msg) { alert(msg); })
-        .exportarHistorial();
-    }
-  </script>
-</body>
-</html>`;
-}
-
-// ============================================
-// 2. LÓGICA DE NEGOCIO (funciones del servidor)
-// ============================================
-
-// Buscar código y mostrar info / formulario para agregar si no existe
-function procesarBusqueda(codigo) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const master = ss.getSheetByName(SHEET_MAESTRO);
-  const data = master.getDataRange().getValues();
-  
-  // Buscar en maestro
-  let encontrado = null;
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][0].toString() === codigo) {
-      encontrado = data[i];
-      break;
-    }
-  }
-  
-  if (encontrado) {
-    return construirVistaActivo(encontrado);
-  } else {
-    // No existe en maestro → ofrecer agregar (se guardará en Nuevos)
-    return `
-      <h3>Activo no encontrado</h3>
-      <p>¿Desea agregar el código <strong>${codigo}</strong> a la lista de nuevos?</p>
-      <button onclick="agregarNuevo('${codigo}')">Agregar nuevo activo</button>
-      <script>
-        function agregarNuevo(cod) {
-          google.script.run
-            .withSuccessHandler(function(resp) {
-              document.getElementById('resultado').innerHTML = resp;
-            })
-            .agregarNuevoActivo(cod);
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#1a237e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Inventario 2026">
+    <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIkludmVudGFyaW8gMjAyNiIsCiAgInNob3J0X25hbWUiOiAiSW52ZW50YXJpbyIsCiAgInN0YXJ0X3VybCI6ICIuIiwKICAiZGlzcGxheSI6ICJzdGFuZGFsb25lIiwKICAiYmFja2dyb3VuZF9jb2xvciI6ICIjMWExMjM3ZSIsCiAgInRoZW1lX2NvbG9yIjogIiMxYTIzN2UiLAogICJpY29ucyI6IFsKICAgIHsKICAgICAgInNyYyI6ICJkYXRhOmltYWdlL3N2Zyt4bWw7YmFzZTY0LFBITjJaeUIyWld4bFkzUWdjR0Z5Wlc1a1BTSmtaV3hyYjI1c2FXNGlJSFpsYkdsemRDMWpjbUZrUFNKbGJtRmliM1ZmTWpBeU5pSWdkMmxrZEdnOUlqRTVNQ0lnYUdWcFoyaDBQU0l4T1RBaUlIeHdZWE56WlhJZ1ptbHNiRDBpSXpvdkwzZDNkeTVoY0dWbGJpOGlQanh3WVhSb0lHWnBiR3c5SWlNNU9UazVPVGtpSUhKaGJtZGhjR2x1WnowaVUxWkdkR1Z6V2xWamRXVnVkQ0lnWm1sc2JDMWtaVzFqWlRwemFHRXlQV1poYkhObExuQmtaaTl6YUdFeU9pSXZQand2YzJaeUx6NEsiCiAgICB9CiAgXQp9">
+    <title>Inventario 2026</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        :root {
+            --primary: #1a237e; --primary-light: #283593; --accent: #ff6f00; --success: #2e7d32;
+            --warning: #f57c00; --danger: #c62828; --info: #1565c0; --bg: #f5f5f5; --card: #ffffff;
+            --border: #e0e0e0; --text: #212121; --text-secondary: #616161; --shadow: 0 2px 8px rgba(0,0,0,0.1);
+            --radius: 12px; --bottom-nav-height: 65px;
         }
-      </script>
-    `;
-  }
-}
+        body.modo-oscuro {
+            --primary: #263238; --primary-light: #37474f; --accent: #ffab00; --success: #4caf50;
+            --warning: #ff9800; --danger: #e53935; --info: #42a5f5; --bg: #121212; --card: #1e1e1e;
+            --border: #333333; --text: #e0e0e0; --text-secondary: #b0b0b0; --shadow: 0 2px 8px rgba(255,255,255,0.05);
+        }
+        body { background: var(--bg); color: var(--text); min-height: 100vh; -webkit-tap-highlight-color: transparent; user-select: none; }
+        .header { background: linear-gradient(135deg, var(--primary) 0%, #0d1b5e 100%); color: white; padding: 0.75rem 1rem; box-shadow: 0 4px 12px rgba(0,0,0,0.2); position: sticky; top: 0; z-index: 100; }
+        .header-content { max-width: 1400px; margin: 0 auto; display: flex; align-items: center; justify-content: center; }
+        .header h1 { font-size: 1.2rem; font-weight: 700; letter-spacing: 0.3px; } .header h1 span { color: #ffab40; }
+        .btn { padding: 0.5rem 0.9rem; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.75rem; transition: all 0.3s ease; display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap; background: transparent; color: inherit; touch-action: manipulation; user-select: none; }
+        .btn-primary { background: var(--accent); color: white; } .btn-primary:active { background: #e65100; transform: scale(0.96); }
+        .btn-secondary { background: white; color: var(--primary); border: 2px solid var(--primary); } .btn-secondary:active { background: #e8eaf6; }
+        .btn-success { background: var(--success); color: white; } .btn-info { background: var(--info); color: white; }
+        .btn-warning { background: var(--warning); color: white; } .btn-danger { background: var(--danger); color: white; }
+        .btn-outline { background: transparent; color: white; border: 2px solid rgba(255,255,255,0.5); } .btn-outline:active { background: rgba(255,255,255,0.1); }
+        .btn-sm { padding: 0.35rem 0.7rem; font-size: 0.7rem; }
+        .main-container { max-width: 1400px; margin: 0 auto; padding: 0.75rem; padding-bottom: calc(var(--bottom-nav-height) + 1rem); }
+        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.6rem; margin-bottom: 0.75rem; }
+        .stat-card { background: var(--card); border-radius: var(--radius); padding: 0.8rem; box-shadow: var(--shadow); border-left: 4px solid transparent; cursor: pointer; transition: transform 0.2s; }
+        .stat-card:active { transform: scale(0.97); } .stat-card.total { border-left-color: var(--primary); } .stat-card.pendientes { border-left-color: var(--danger); } .stat-card.inventariados { border-left-color: var(--success); } .stat-card.cambios { border-left-color: var(--warning); } .stat-card.progreso { border-left-color: var(--info); }
+        .stat-value { font-size: 1.4rem; font-weight: 700; } .stat-label { font-size: 0.65rem; color: var(--text-secondary); text-transform: uppercase; }
+        .progress-container { background: var(--card); border-radius: var(--radius); padding: 0.8rem; margin-bottom: 0.75rem; box-shadow: var(--shadow); }
+        .progress-bar-wrapper { background: #e0e0e0; border-radius: 20px; height: 18px; overflow: hidden; margin: 0.4rem 0; }
+        .progress-bar-fill { height: 100%; background: linear-gradient(90deg, #2e7d32, #4caf50); border-radius: 20px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 0.65rem; transition: width 0.5s ease; }
+        .search-section { background: var(--card); border-radius: var(--radius); padding: 0.8rem; margin-bottom: 0.75rem; box-shadow: var(--shadow); }
+        .search-row { display: flex; gap: 0.4rem; align-items: center; }
+        .search-input-group { display: flex; flex: 1; min-width: 0; }
+        .search-input { flex: 1; padding: 0.6rem; border: 2px solid var(--border); border-radius: 8px 0 0 8px; font-size: 0.85rem; inputmode: numeric; background: var(--card); color: var(--text); }
+        .search-btn { padding: 0.6rem 0.9rem; background: var(--primary); color: white; border: none; border-radius: 0 8px 8px 0; font-weight: 600; cursor: pointer; }
+        .clear-search-btn { background: none; border: 2px solid var(--border); border-radius: 8px; padding: 0.55rem; color: var(--danger); font-size: 1.1rem; cursor: pointer; display: none; flex-shrink: 0; }
+        .scan-btn { background: #424242; color: white; border: none; border-radius: 8px; padding: 0.6rem 0.8rem; font-weight: 600; cursor: pointer; flex-shrink: 0; }
+        .scan-btn.active-scan { background: #c62828; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(198,40,40,0.4); } 50% { box-shadow: 0 0 0 12px rgba(198,40,40,0); } }
+        .quick-filters { background: var(--card); border-radius: var(--radius); padding: 0.8rem; margin-bottom: 0.75rem; box-shadow: var(--shadow); }
+        .filter-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; align-items: center; }
+        .filter-chip { padding: 0.25rem 0.7rem; border-radius: 20px; font-size: 0.65rem; cursor: pointer; border: 1.5px solid var(--border); background: var(--card); font-weight: 500; transition: 0.2s; text-align: center; }
+        .filter-chip.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .filter-select, .filter-input { padding: 0.25rem 0.5rem; border-radius: 20px; font-size: 0.65rem; border: 1.5px solid var(--border); background: var(--card); font-weight: 500; color: var(--text); width: 100%; }
+        .asset-detail { background: var(--card); border-radius: var(--radius); padding: 0.8rem; box-shadow: var(--shadow); margin-bottom: 0.75rem; display: none; }
+        .asset-detail.active { display: block; }
+        .asset-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.6rem; padding-bottom: 0.6rem; border-bottom: 2px solid var(--border); }
+        .asset-code { font-size: 1.2rem; font-weight: 700; color: var(--primary); }
+        .asset-status-badge { padding: 0.2rem 0.6rem; border-radius: 20px; font-weight: 600; font-size: 0.65rem; }
+        .badge-pendiente { background: #fce4ec; color: #c62828; } .badge-sin-cambio { background: #e3f2fd; color: #1565c0; } .badge-cambio { background: #fff3e0; color: #e65100; } .badge-nuevo { background: #e8f5e9; color: #2e7d32; }
+        .asset-info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.5rem; margin-bottom: 0.8rem; }
+        .info-item { background: var(--card); padding: 0.5rem; border-radius: 8px; border-left: 3px solid var(--primary); }
+        .info-label { font-size: 0.6rem; text-transform: uppercase; color: var(--text-secondary); font-weight: 600; }
+        .info-value { font-weight: 500; font-size: 0.8rem; }
+        .update-section { background: #fff8e1; border-radius: var(--radius); padding: 0.8rem; border: 2px solid #ffcc02; margin-top: 0.5rem; }
+        .modo-oscuro .update-section { background: #2d2d2d; border-color: #ffab00; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.6rem; }
+        .form-group label { font-weight: 600; font-size: 0.7rem; margin-bottom: 0.15rem; display: block; }
+        .form-group select, .form-group input, .form-group textarea { padding: 0.5rem; border: 2px solid var(--border); border-radius: 8px; font-size: 0.8rem; width: 100%; background: var(--card); color: var(--text); }
+        .form-actions { display: flex; gap: 0.4rem; margin-top: 0.8rem; flex-wrap: wrap; }
+        .form-actions .btn { pointer-events: auto; }
+        .history-section { background: var(--card); border-radius: var(--radius); padding: 0.8rem; box-shadow: var(--shadow); }
+        .table-wrapper { overflow-x: auto; max-height: 350px; overflow-y: auto; border-radius: 8px; border: 1px solid var(--border); }
+        table { width: 100%; border-collapse: collapse; font-size: 0.65rem; }
+        thead th { background: var(--primary); color: white; padding: 0.45rem; position: sticky; top: 0; font-size: 0.65rem; }
+        tbody td { padding: 0.35rem; border-bottom: 1px solid var(--border); }
+        .empty-state { text-align: center; padding: 2rem; color: var(--text-secondary); font-size: 0.8rem; }
+        .action-btn { background: none; border: none; cursor: pointer; font-size: 1rem; padding: 0 0.25rem; }
+        .bottom-nav { 
+            display: flex; position: fixed; bottom: 0; left: 0; width: 100%; 
+            height: var(--bottom-nav-height); background: var(--primary); 
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.2); z-index: 110; 
+            justify-content: space-around; align-items: center; padding: 0 0.3rem; 
+        }
+        .bottom-nav .nav-item { display: flex; flex-direction: column; align-items: center; color: rgba(255,255,255,0.7); font-size: 0.6rem; cursor: pointer; transition: 0.2s; padding: 0.2rem; border-radius: 8px; min-width: 50px; gap: 0.1rem; }
+        .bottom-nav .nav-item i { font-size: 1.1rem; } .bottom-nav .nav-item.active { color: #ffab40; background: rgba(255,255,255,0.15); }
+        .menu-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 200; justify-content: center; align-items: flex-start; padding-top: 4rem; }
+        .menu-overlay.active { display: flex; }
+        .menu-panel { background: var(--card); border-radius: var(--radius); padding: 1rem; min-width: 200px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+        .menu-panel .menu-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.8rem; border-radius: 8px; cursor: pointer; font-size: 0.85rem; font-weight: 500; color: var(--text); transition: background 0.2s; }
+        .menu-panel .menu-item:active { background: #f0f0f0; }
+        .camera-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 300; flex-direction: column; align-items: center; justify-content: center; }
+        .camera-overlay.active { display: flex; }
+        #reader { width: 100%; height: 100%; }
+        #qr-shaded-region { display: none !important; }
+        .close-camera-btn { position: absolute; top: 4rem; right: 1rem; background: rgba(255,255,255,0.3); color: white; border: none; border-radius: 50%; width: 44px; height: 44px; font-size: 1.5rem; cursor: pointer; z-index: 301; display: flex; align-items: center; justify-content: center; }
+        .new-asset-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 250; justify-content: center; align-items: center; padding: 1rem; }
+        .new-asset-overlay.active { display: flex; }
+        .new-asset-panel { background: var(--card); border-radius: var(--radius); padding: 1.5rem; max-width: 500px; width: 100%; box-shadow: 0 12px 32px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto; }
+        .toast { position: fixed; bottom: 5rem; right: 0.5rem; background: #333; color: white; padding: 0.7rem 1rem; border-radius: 8px; font-weight: 500; z-index: 400; font-size: 0.75rem; animation: slideIn 0.3s; }
+        .toast.success { background: #2e7d32; } .toast.error { background: #c62828; } .toast.info { background: #1565c0; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } }
+        .hidden-input { display: none; }
+        .login-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg); z-index: 500; display: flex;
+            align-items: center; justify-content: center;
+        }
+        .login-card {
+            background: var(--card); padding: 2rem; border-radius: var(--radius);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3); text-align: center;
+            max-width: 320px; width: 90%;
+        }
+        .login-card h2 { margin-bottom: 1rem; }
+        .login-card input { margin: 0.5rem 0; width: 100%; }
+        @media (max-width: 768px) {
+            .header h1 { font-size: 1.1rem; }
+            .dashboard { grid-template-columns: repeat(2, 1fr); }
+            .asset-info-grid { grid-template-columns: 1fr; } .form-grid { grid-template-columns: 1fr; }
+            .filter-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-overlay" id="loginOverlay">
+        <div class="login-card">
+            <h2>🔒 Acceso Restringido</h2>
+            <input type="password" id="loginPassword" placeholder="Ingrese la contraseña" style="padding:0.5rem; border:2px solid var(--border); border-radius:8px; font-size:0.9rem; background:var(--card); color:var(--text);">
+            <button class="btn btn-primary" onclick="verificarPassword()" style="margin-top:1rem; width:100%;">Ingresar</button>
+            <p id="loginError" style="color:var(--danger); display:none; margin-top:0.5rem;">Contraseña incorrecta</p>
+        </div>
+    </div>
 
-function construirVistaActivo(fila) {
-  const [codigo, , , , nombre, desc, , , , , , estado, codUbic, nomUbic, , nomResp, , , , , , , , nuevaUbic, nuevoResp] = fila;
-  const ubicOrig = nomUbic ? nomUbic : (codUbic ? codUbic : 'No definida');
-  return `
-    <h3>Código: ${codigo}</h3>
-    <p><b>Nombre:</b> ${nombre}</p>
-    <p><b>Descripción:</b> ${desc}</p>
-    <p><b>Ubicación original:</b> ${ubicOrig}</p>
-    <p><b>Responsable original:</b> ${nomResp}</p>
-    <p><b>Estado original:</b> ${estado}</p>
-    <p><b>Nueva ubicación:</b> ${nuevaUbic || '—'}</p>
-    <p><b>Nuevo responsable:</b> ${nuevoResp || '—'}</p>
-    <hr>
-    <p>Para registrar un movimiento, utilice la opción correspondiente.</p>
-  `;
-}
+    <div id="appContainer" style="display:none;">
+        <div class="install-banner" id="installBanner" onclick="instalarApp()" style="display:none;background:var(--primary);color:white;padding:0.5rem;text-align:center;cursor:pointer;">
+            📲 Instalar app para acceso rápido <span style="text-decoration:underline;">Toca aquí</span>
+        </div>
 
-// Agregar nuevo activo a la hoja "Nuevos"
-function agregarNuevoActivo(codigo) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const nuevos = ss.getSheetByName(SHEET_NUEVOS);
-  if (!nuevos) {
-    throw new Error('No existe la hoja "Nuevos". Cree la segunda pestaña con ese nombre.');
-  }
-  
-  // Obtener último código en la columna A de Nuevos para autoincremento
-  const data = nuevos.getDataRange().getValues();
-  let ultimoCod = "";
-  if (data.length > 1) {
-    ultimoCod = data[data.length-1][0].toString();
-  }
-  // Si no hay datos, el nuevo código será el mismo que se busca (ya es un código válido)
-  // Opcionalmente se podría generar automáticamente, pero según tu indicación se debe usar el código ingresado.
-  
-  // Verificar que el código no exista ya en Nuevos
-  const existe = data.some(fila => fila[0].toString() === codigo);
-  if (existe) {
-    return `El código ${codigo} ya fue agregado anteriormente.`;
-  }
-  
-  // Insertar nueva fila al final
-  nuevos.appendRow([codigo, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']); // Ajusta según las columnas necesarias
-  // Registrar en historial
-  registrarHistorial(codigo, "AGREGADO", "Nuevo activo agregado a la lista de Nuevos");
-  
-  return `✅ Activo ${codigo} agregado correctamente a la pestaña "Nuevos".`;
-}
+        <header class="header">
+            <div class="header-content">
+                <h1>📋 Inventario <span>2026</span></h1>
+            </div>
+        </header>
 
-// ============================================
-// 3. HISTORIAL DESCENDENTE Y NO ACUMULATIVO
-// ============================================
+        <div class="menu-overlay" id="menuOverlay" onclick="closeMenu(event)">
+            <div class="menu-panel" onclick="event.stopPropagation()">
+                <div class="menu-item" onclick="document.getElementById('fileInputXlsx').click(); closeMenuDirect();">📂 Importar</div>
+                <div class="menu-item" onclick="guardarProgresoXLSX(); closeMenuDirect();">💾 Guardar Progreso</div>
+                <div class="menu-item" onclick="document.getElementById('loadProgressInputXlsx').click(); closeMenuDirect();">📥 Cargar Progreso</div>
+                <div class="menu-item" onclick="exportarExcel(); closeMenuDirect();">📊 Exportar</div>
+                <div class="menu-item" onclick="toggleModoOscuro(); closeMenuDirect();" id="menuModoOscuro">🌙 Modo oscuro</div>
+            </div>
+        </div>
 
-function registrarHistorial(codigo, accion, detalle) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const hist = ss.getSheetByName(SHEET_HISTORIAL);
-  if (!hist) {
-    ss.insertSheet(SHEET_HISTORIAL);
-    ss.getSheetByName(SHEET_HISTORIAL).appendRow(["Fecha", "Código", "Acción", "Detalle"]);
-  }
-  // Insertar al principio para que siempre veamos descendente (más reciente arriba)
-  hist.insertRowBefore(2);
-  hist.getRange(2, 1, 1, 4).setValues([[new Date(), codigo, accion, detalle]]);
-}
+        <div class="camera-overlay" id="cameraOverlay">
+            <button class="close-camera-btn" onclick="detenerScanner()">✕</button>
+            <div id="reader"></div>
+        </div>
 
-// Exportar historial: copiar la hoja Historial en un nuevo libro o limpiar y volcar ordenado
-function exportarHistorial() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const hist = ss.getSheetByName(SHEET_HISTORIAL);
-  if (!hist || hist.getLastRow() <= 1) {
-    return 'No hay historial para exportar.';
-  }
-  
-  // Crear nueva hoja temporal ordenada descendente (ya está insertada así, pero aseguramos)
-  const datos = hist.getDataRange().getValues();
-  // Ordenar descendentemente por fecha (columna 0) si fuera necesario, pero como insertamos arriba, ya lo está.
-  
-  // Crear un nuevo libro con los datos del historial
-  const nuevoLibro = SpreadsheetApp.create("Historial_exportado_" + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd_HHmmss"));
-  const hojaExp = nuevoLibro.getSheets()[0];
-  hojaExp.getRange(1, 1, datos.length, datos[0].length).setValues(datos);
-  
-  return 'Historial exportado exitosamente.';
-}
+        <div class="new-asset-overlay" id="newAssetOverlay" onclick="if(event.target===this) closeNewAssetForm()">
+            <div class="new-asset-panel" onclick="event.stopPropagation()">
+                <h3>➕ Agregar Nuevo Activo</h3>
+                <div class="form-grid">
+                    <div class="form-group"><label>Código (opcional)</label><input type="text" id="newCodigo" placeholder="Dejar vacío para autoasignar"></div>
+                    <div class="form-group"><label>Nuevo Piso *</label><select id="newNuevoPiso" onchange="actualizarSubUbicaciones_New()"><option value="">Seleccionar...</option><option value="BLOQUE A">BLOQUE A</option><option value="PLANTA BAJA">PLANTA BAJA</option><option value="PISO 1">PISO 1</option><option value="PISO 2">PISO 2</option><option value="PISO 3">PISO 3</option><option value="SUBTERRANEO">SUBTERRANEO</option></select></div>
+                    <div class="form-group"><label>Ubicación Específica *</label><input type="text" id="newNuevaSubUbicacion" list="newUbicacionesList" placeholder="Escriba o seleccione..." autocomplete="off"><datalist id="newUbicacionesList"></datalist></div>
+                    <div class="form-group"><label>Nuevo Responsable</label><input type="text" id="newNuevoResponsable" list="newResponsablesList" placeholder="Escriba o seleccione..." autocomplete="off"><datalist id="newResponsablesList"></datalist></div>
+                    <div class="form-group"><label>Nuevo Estado</label><input type="text" id="newNuevoEstado" list="estadosList" placeholder="Escriba o seleccione..." autocomplete="off"><datalist id="estadosList"><option>Buen Estado</option><option>Mal Estado</option><option>Obsoleto</option><option>En Movimiento</option><option>Revalúo</option></datalist></div>
+                    <div class="form-group" style="grid-column:1/-1;"><label>Observaciones</label><textarea id="newObservaciones" rows="2" placeholder="Notas..."></textarea></div>
+                </div>
+                <div class="form-actions" style="margin-top:1rem;">
+                    <button class="btn btn-success btn-sm" onclick="guardarNuevoActivo()">💾 Guardar Activo</button>
+                    <button class="btn btn-danger btn-sm" onclick="closeNewAssetForm()">Cancelar</button>
+                </div>
+            </div>
+        </div>
 
-// ============================================
-// 4. FUNCIONES AUXILIARES PARA MANTENER LA HOJA PROGRESO (opcional)
-// ============================================
-// (Si necesitas regenerar la hoja Progreso con ubicación original, puedes llamar a generarProgreso desde un menú)
-function onOpen() {
-  const ui = SpreadsheetApp.getUi();
-  ui.createMenu('Control Inventario')
-    .addItem('Generar hoja Progreso', 'generarProgreso')
-    .addItem('Exportar historial', 'exportarHistorial')
-    .addToUi();
-}
+        <main class="main-container">
+            <div class="dashboard">
+                <div class="stat-card total"><span class="stat-value" id="totalActivos">0</span><span class="stat-label">Total</span></div>
+                <div class="stat-card pendientes"><span class="stat-value" id="pendientes">0</span><span class="stat-label">Pendientes</span></div>
+                <div class="stat-card inventariados"><span class="stat-value" id="inventariados">0</span><span class="stat-label">Inventariados</span></div>
+                <div class="stat-card cambios"><span class="stat-value" id="conCambios">0</span><span class="stat-label">Con cambios</span></div>
+                <div class="stat-card progreso"><span class="stat-value" id="porcentajeProgreso">0%</span><span class="stat-label">Progreso</span></div>
+            </div>
 
-function generarProgreso() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const maestro = ss.getSheetByName(SHEET_MAESTRO);
-  if (!maestro) {
-    throw new Error('No existe la hoja "DATOS MAESTROS"');
-  }
-  const datos = maestro.getDataRange().getValues();
-  const progreso = [];
-  progreso.push(["CODIGOAF","NOMBREAF","DESCAF","UBICACION ORIGINAL","RESPONSABLE ORIGINAL","ESTADO ORIGINAL","NUEVA UBICACION","NUEVO RESPONSABLE","NUEVO ESTADO","OBSERVACIONES","ESTADO INVENTARIO","FECHA INVENTARIO"]);
-  
-  for (let i = 1; i < datos.length; i++) {
-    const fila = datos[i];
-    const ubicOrig = fila[13]; // NOM UBICACIÓN (columna N, índice 13)
-    const respOrig = fila[15]; // NOM RESP ANT (columna P)
-    const estadoOrig = fila[11] || "Revalúo";
-    progreso.push([
-      fila[0], fila[4], fila[5],
-      ubicOrig, respOrig, estadoOrig,
-      fila[22] || "", fila[23] || "", "", fila[24] || "", "pendiente", ""
-    ]);
-  }
-  
-  let hojaProgreso = ss.getSheetByName("Progreso");
-  if (hojaProgreso) {
-    ss.deleteSheet(hojaProgreso);
-  }
-  hojaProgreso = ss.insertSheet("Progreso");
-  hojaProgreso.getRange(1,1,progreso.length, progreso[0].length).setValues(progreso);
-  SpreadsheetApp.getUi().alert('Hoja Progreso generada correctamente.');
-}
+            <div class="progress-container">
+                <strong>Progreso general</strong>
+                <div class="progress-bar-wrapper"><div class="progress-bar-fill" id="progressBar" style="width:0%">0%</div></div>
+                <small id="progressText">0 de 0 activos inventariados</small>
+            </div>
+
+            <div class="search-section">
+                <div class="search-row">
+                    <div class="search-input-group">
+                        <input type="text" class="search-input" id="searchInput" inputmode="numeric" placeholder="Código (ej. E72)..." onkeyup="if(event.key==='Enter') buscarActivo()">
+                        <button class="search-btn" onclick="buscarActivo()">🔍</button>
+                    </div>
+                    <button class="clear-search-btn" id="clearSearchBtn" onclick="limpiarBusqueda()">✖️</button>
+                    <button class="scan-btn" id="scanBtn" onclick="toggleScanner()">📷</button>
+                    <button class="btn btn-success btn-sm" onclick="openNewAssetForm()">➕</button>
+                </div>
+            </div>
+
+            <div class="asset-detail" id="assetDetail">
+                <div class="asset-header">
+                    <div><div class="asset-code" id="assetCode">-</div><span class="asset-status-badge badge-pendiente" id="assetStatusBadge">PENDIENTE</span></div>
+                    <div style="display:flex; gap:0.3rem; align-items:center;">
+                        <button class="btn btn-sm btn-secondary" onclick="navegarActivo(-1)">◀</button>
+                        <span id="navInfo" style="font-size:0.7rem;"></span>
+                        <button class="btn btn-sm btn-secondary" onclick="navegarActivo(1)">▶</button>
+                    </div>
+                </div>
+                <div class="asset-info-grid">
+                    <div class="info-item"><span class="info-label">Familia/Nombre</span><div class="info-value" id="assetNombre">-</div></div>
+                    <div class="info-item"><span class="info-label">Descripción</span><div class="info-value" id="assetDescripcion">-</div></div>
+                    <div class="info-item"><span class="info-label">Ubicación Original</span><div class="info-value" id="assetUbicacion">-</div></div>
+                    <div class="info-item"><span class="info-label">Responsable Original</span><div class="info-value" id="assetResponsable">-</div></div>
+                    <div class="info-item"><span class="info-label">Estado Original</span><div class="info-value" id="assetEstadoOriginal">-</div></div>
+                </div>
+                <div class="update-section">
+                    <h3 style="margin-bottom:0.4rem;">✏️ Registrar cambios</h3>
+                    <div class="form-grid">
+                        <div class="form-group"><label>Nuevo Piso *</label><select id="nuevoPiso" onchange="actualizarSubUbicaciones()"><option value="">Sin cambios</option><option value="BLOQUE A">BLOQUE A</option><option value="PLANTA BAJA">PLANTA BAJA</option><option value="PISO 1">PISO 1</option><option value="PISO 2">PISO 2</option><option value="PISO 3">PISO 3</option><option value="SUBTERRANEO">SUBTERRANEO</option></select></div>
+                        <div class="form-group"><label>Ubicación Específica</label><input type="text" id="nuevaSubUbicacion" list="subUbicacionesList" placeholder="Dejar vacío para no modificar" autocomplete="off"><datalist id="subUbicacionesList"></datalist></div>
+                        <div class="form-group"><label>Nuevo Responsable</label><input type="text" id="nuevoResponsable" list="responsablesList" placeholder="Dejar vacío para no modificar" autocomplete="off"><datalist id="responsablesList"></datalist></div>
+                        <div class="form-group"><label>Nuevo Estado</label><input type="text" id="nuevoEstado" list="estadosList2" placeholder="Dejar vacío para no modificar" autocomplete="off"><datalist id="estadosList2"><option>Buen Estado</option><option>Mal Estado</option><option>Obsoleto</option><option>En Movimiento</option><option>Revalúo</option></datalist></div>
+                        <div class="form-group" style="grid-column:1/-1;"><label>Observaciones</label><textarea id="observaciones" rows="2" placeholder="Notas..."></textarea></div>
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn btn-success btn-sm" onclick="guardarCambios()">💾 Guardar cambios</button>
+                        <button class="btn btn-info btn-sm" onclick="marcarSinCambios()">✅ Sin cambios</button>
+                        <button class="btn btn-danger btn-sm" onclick="limpiarFormulario()">🧹 Limpiar</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="quick-filters">
+                <div class="filter-grid">
+                    <span class="filter-chip active" data-filter="inventariados" onclick="toggleStateFilter('inventariados', this)">📋 Inventariados</span>
+                    <span class="filter-chip" data-filter="todos" onclick="toggleStateFilter('todos', this)">Todos</span>
+                    <span class="filter-chip" data-filter="pendiente" onclick="toggleStateFilter('pendiente', this)">⏳ Pendientes</span>
+                    <span class="filter-chip" data-filter="sin_cambio" onclick="toggleStateFilter('sin_cambio', this)">✅ Sin cambios</span>
+                    <span class="filter-chip" data-filter="con_cambio" onclick="toggleStateFilter('con_cambio', this)">🔄 Con cambios</span>
+                    <span class="filter-chip" data-filter="nuevo" onclick="toggleStateFilter('nuevo', this)">🆕 Nuevos</span>
+                    <select id="filtroPisoSelect" class="filter-select" onchange="cambiarFiltroPiso()">
+                        <option value="">🏢 Todos los pisos</option>
+                        <option value="BLOQUE A">BLOQUE A</option><option value="PLANTA BAJA">PLANTA BAJA</option><option value="PISO 1">PISO 1</option><option value="PISO 2">PISO 2</option><option value="PISO 3">PISO 3</option><option value="SUBTERRANEO">SUBTERRANEO</option>
+                    </select>
+                    <select id="filtroUbicacionSelect" class="filter-select" onchange="cambiarFiltroUbicacion()"><option value="">📍 Todas las ubicaciones</option></select>
+                    <input type="text" id="filtroResponsableInput" class="filter-input" placeholder="👤 Responsable..." list="filtroResponsableList" oninput="cambiarFiltroResponsable()" autocomplete="off">
+                    <button class="btn btn-sm" style="background:var(--card); border:1.5px solid var(--border); border-radius:20px; font-size:0.65rem; padding:0.25rem 0.5rem; color:var(--text);" onclick="limpiarFiltros()">🧹 Limpiar</button>
+                    <datalist id="filtroResponsableList"></datalist>
+                </div>
+            </div>
+
+            <div class="history-section">
+                <h3>📋 Historial</h3>
+                <div style="display:flex; gap:0.4rem; margin:0.4rem 0;">
+                    <button class="btn btn-info btn-sm" onclick="extraerHistorial()">📊 Extraer Historial</button>
+                    <button class="btn btn-danger btn-sm" onclick="limpiarHistorial()">Limpiar</button>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Código</th><th>Nombre</th><th>Ub. Original</th><th>Nueva Ub.</th><th>Responsable Original/Nuevo</th><th>Estado</th><th>Tipo</th><th>Acciones</th></tr></thead>
+                        <tbody id="historyTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+
+        <nav class="bottom-nav" id="bottomNav">
+            <div class="nav-item active" onclick="mostrarSeccion('dashboard')"><i>📊</i><span>Inicio</span></div>
+            <div class="nav-item" onclick="prepararBusqueda()"><i>🔍</i><span>Buscar</span></div>
+            <div class="nav-item" onclick="mostrarSeccion('historial')"><i>📋</i><span>Historial</span></div>
+            <div class="nav-item" onclick="document.getElementById('fileInputXlsx').click()"><i>📂</i><span>Importar</span></div>
+            <div class="nav-item" onclick="toggleMenu()"><i>☰</i><span>Menú</span></div>
+        </nav>
+
+        <input type="file" id="fileInputXlsx" class="hidden-input" accept=".xlsx,.xls" onchange="importarArchivo(event)">
+        <input type="file" id="loadProgressInputXlsx" class="hidden-input" accept=".xlsx,.xls" onchange="cargarProgresoXLSX(event)">
+        <div id="toastContainer"></div>
+    </div>
+
+    <script>
+        const CONTRASENA = 'Lquispe2026';
+
+        const UBICACIONES_POR_PISO = {
+            'BLOQUE A': ['AMBIENTE GENERICO','AMBIENTE 1','AMBIENTE 2','AMBIENTE 3','AMBIENTE 4','AMBIENTE 5','AMBIENTE 6','AMBIENTE 7','AMBIENTE 8','AMBIENTE 9','AMBIENTE 10','AMBIENTE 11'],
+            'PLANTA BAJA': ['AULA 1','AULA 2','LABORATORIO 1','LABORATORIO 2','LABORATORIO 3','PASILLO','PATIO','RECEPCION','REDES 1'],
+            'PISO 1': ['AULA 3','AULA 4','COMEDOR','PASILLO','REDES 2'],
+            'PISO 2': ['AULA 5','AULA 6','DIRECCION DE CARRERA','PASILLO','SALA DE ESTUDIO'],
+            'PISO 3': ['CAPILLA'],
+            'SUBTERRANEO': ['ANFITEATRO','LABORATORIO','OSTEOTECA','PASILLO','RAMPA','SALA FRIA']
+        };
+
+        const LISTA_RESPONSABLES = [
+            'AGUIRRE, MAGDA',
+            'ANAVE, RICARDO',
+            'ANTEQUERA, GABRIEL MAURICIO',
+            'CANAVIRI, LUISA SALOME',
+            'FLORES, PERCY LUCAS',
+            'GARCIA, ZULEMA',
+            'LAZO, ALEJANDRO IGNACIO',
+            'MOLLINEDO, EDSON CRHISTIAN',
+            'SOTO, MADAI',
+            'ZAMBRANA, ANGELO FELIX',
+            'QUISPE, LEONEL RODRIGO'
+        ];
+
+        let activosDB = [], activosMap = {}, historialInventario = [], activoActual = null;
+        let resultadosBusqueda = [], indiceNavegacion = -1;
+        let filtroEstado = 'inventariados', filtroPiso = null, filtroUbicacion = null, filtroResponsable = '';
+        let html5QrScanner = null, escaneando = false, intervaloExportacion = null;
+        let modoOscuro = false;
+
+        // ===================== AUTENTICACIÓN =====================
+        function verificarPassword() {
+            const input = document.getElementById('loginPassword');
+            const error = document.getElementById('loginError');
+            if (input.value === CONTRASENA) {
+                localStorage.setItem('app_password', CONTRASENA);
+                document.getElementById('loginOverlay').style.display = 'none';
+                document.getElementById('appContainer').style.display = 'block';
+                if (!activosDB.length) init();
+                error.style.display = 'none';
+            } else {
+                error.style.display = 'block';
+                input.value = '';
+            }
+        }
+
+        function checkAuth() {
+            const savedPassword = localStorage.getItem('app_password');
+            if (savedPassword === CONTRASENA) {
+                document.getElementById('loginOverlay').style.display = 'none';
+                document.getElementById('appContainer').style.display = 'block';
+                return true;
+            } else {
+                document.getElementById('loginOverlay').style.display = 'flex';
+                document.getElementById('appContainer').style.display = 'none';
+                return false;
+            }
+        }
+
+        // ===================== INICIALIZACIÓN =====================
+        function init() {
+            if (!checkAuth()) return;
+            if (localStorage.getItem('modoOscuro') === 'true') { modoOscuro = true; document.body.classList.add('modo-oscuro'); }
+            actualizarTextoModoOscuro();
+            cargarEstadoGuardado();
+            actualizarDashboard();
+            actualizarTablaHistorial();
+            actualizarSelectUbicaciones();
+            poblarDatalistResponsables();
+            poblarDatalistsFormulario();
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('data:application/javascript;base64,' + btoa(
+                        `const CACHE='inv2026-v2';self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(['/'])));});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(resp=>resp||fetch(e.request)));});`
+                    )).catch(()=>{});
+                });
+            }
+            window.addEventListener('pagehide', () => guardarEnLocalStorage());
+            window.addEventListener('pageshow', () => { if (checkAuth()) { cargarEstadoGuardado(); actualizarDashboard(); actualizarTablaHistorial(); } });
+            let deferredPrompt;
+            window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; document.getElementById('installBanner').style.display = 'block'; });
+            window.instalarApp = () => { if (deferredPrompt) { deferredPrompt.prompt(); deferredPrompt.userChoice.then(() => { deferredPrompt = null; document.getElementById('installBanner').style.display = 'none'; }); } };
+            window.addEventListener('appinstalled', () => { document.getElementById('installBanner').style.display = 'none'; });
+            if (intervaloExportacion) clearInterval(intervaloExportacion);
+            intervaloExportacion = setInterval(() => { if (confirm('¿Desea exportar el progreso ahora?')) guardarProgresoXLSX(); }, 20 * 60 * 1000);
+        }
+
+        function actualizarTextoModoOscuro() {
+            document.getElementById('menuModoOscuro').textContent = modoOscuro ? '☀️ Modo claro' : '🌙 Modo oscuro';
+        }
+
+        function cargarEstadoGuardado() {
+            const datos = localStorage.getItem('inventario2026_activos');
+            const hist = localStorage.getItem('inventario2026_historial');
+            if (datos) try { activosDB = JSON.parse(datos); reconstruirMapa(); } catch(e){}
+            if (hist) try { historialInventario = JSON.parse(hist); } catch(e){}
+        }
+        function guardarEnLocalStorage() { localStorage.setItem('inventario2026_activos', JSON.stringify(activosDB)); localStorage.setItem('inventario2026_historial', JSON.stringify(historialInventario)); }
+        function reconstruirMapa() { activosMap = {}; activosDB.forEach(a => { const cod = (a.CODIGOAF||'').trim(); if(cod) activosMap[cod] = a; }); }
+        function obtenerUbicacionOriginal(a) { return a['NOM UBICACION'] || a['NOMUBICACION'] || a['NOM_UBICACION'] || a['NOM UBICACIÓN'] || ''; }
+        function obtenerResponsableOriginal(a) { return a['NOM RESP ANT'] || a['NOMRESPANT'] || a['NOM_RESP_ANT'] || ''; }
+        function obtenerEstadoOriginal(a) { return a['OBSERV ESTADO'] || a['OBSERVESTADO'] || a['ESTADOAF'] || a['OBSERV_ESTADO'] || ''; }
+        function generarIdUnico(prefijo) { return prefijo + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9); }
+
+        // ===================== MODO OSCURO =====================
+        function toggleModoOscuro() {
+            modoOscuro = !modoOscuro;
+            if (modoOscuro) { document.body.classList.add('modo-oscuro'); localStorage.setItem('modoOscuro', 'true'); }
+            else { document.body.classList.remove('modo-oscuro'); localStorage.setItem('modoOscuro', 'false'); }
+            actualizarTextoModoOscuro();
+        }
+
+        // ===================== IMPORTAR =====================
+        function normalizarClave(key) { return key.trim().toUpperCase().replace(/\s+/g, ''); }
+        function importarArchivo(event) {
+            const file = event.target.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const wb = XLSX.read(data, {type:'array'});
+                const sheet = wb.Sheets[wb.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(sheet, {defval:''});
+                if (!json.length) { mostrarToast('❌ Archivo vacío'); return; }
+                activosDB = json.map(row => {
+                    const newRow = {};
+                    Object.keys(row).forEach(key => {
+                        const valor = row[key];
+                        const cleanKey = key.trim();
+                        newRow[cleanKey] = valor;
+                        const normKey = normalizarClave(key);
+                        if (normKey !== cleanKey.toUpperCase().replace(/\s+/g, '')) newRow[normKey] = valor;
+                    });
+                    if (!newRow['NOMUBICACION'] && newRow['NOM UBICACION']) newRow['NOMUBICACION'] = newRow['NOM UBICACION'];
+                    if (!newRow['NOMRESPANT'] && newRow['NOM RESP ANT']) newRow['NOMRESPANT'] = newRow['NOM RESP ANT'];
+                    if (!newRow['OBSERVESTADO'] && newRow['OBSERV ESTADO']) newRow['OBSERVESTADO'] = newRow['OBSERV ESTADO'];
+                    if (!newRow['ESTADOAF'] && newRow['ESTADO AF']) newRow['ESTADOAF'] = newRow['ESTADO AF'];
+                    newRow._id = newRow._id || generarIdUnico('imp_');
+                    newRow._estadoInventario = newRow._estadoInventario || 'pendiente';
+                    newRow._nuevaUbicacion = newRow._nuevaUbicacion || '';
+                    newRow._nuevoResponsable = newRow._nuevoResponsable || '';
+                    newRow._nuevoEstado = newRow._nuevoEstado || '';
+                    newRow._observaciones = newRow._observaciones || '';
+                    return newRow;
+                });
+                reconstruirMapa(); guardarEnLocalStorage(); actualizarDashboard(); actualizarTablaHistorial();
+                mostrarToast(`✅ ${activosDB.length} activos importados`);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // ===================== ESCÁNER =====================
+        function obtenerDimensionesQrBox() { return { width: window.innerWidth, height: window.innerHeight }; }
+        function toggleScanner() {
+            if (escaneando) { detenerScanner(); return; }
+            document.getElementById('cameraOverlay').classList.add('active');
+            document.getElementById('scanBtn').classList.add('active-scan');
+            escaneando = true;
+            html5QrScanner = new Html5Qrcode("reader");
+            const config = {
+                fps: 15, qrbox: obtenerDimensionesQrBox,
+                formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE, Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39, Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8, Html5QrcodeSupportedFormats.UPC_A, Html5QrcodeSupportedFormats.UPC_E, Html5QrcodeSupportedFormats.CODABAR],
+            };
+            html5QrScanner.start({ facingMode: "environment" }, config,
+                (decoded) => { document.getElementById('searchInput').value = decoded; buscarActivo(); detenerScanner(); },
+                (err) => {}
+            ).catch(() => { detenerScanner(); mostrarToast('Error de cámara', 'error'); });
+        }
+        function detenerScanner() {
+            if (html5QrScanner) { html5QrScanner.stop().then(() => html5QrScanner.clear()).catch(()=>{}); html5QrScanner = null; }
+            document.getElementById('cameraOverlay').classList.remove('active');
+            document.getElementById('scanBtn').classList.remove('active-scan');
+            escaneando = false;
+        }
+
+        // ===================== NUEVO ACTIVO =====================
+        function openNewAssetForm() {
+            document.getElementById('newAssetOverlay').classList.add('active');
+            document.getElementById('newCodigo').value = '';
+            document.getElementById('newNuevoPiso').value = '';
+            actualizarSubUbicaciones_New();
+            document.getElementById('newNuevoResponsable').value = '';
+            document.getElementById('newNuevoEstado').value = '';
+            document.getElementById('newObservaciones').value = '';
+        }
+        function closeNewAssetForm() { document.getElementById('newAssetOverlay').classList.remove('active'); }
+        function actualizarSubUbicaciones_New() {
+            const piso = document.getElementById('newNuevoPiso').value;
+            const datalist = document.getElementById('newUbicacionesList');
+            datalist.innerHTML = '';
+            if (piso && UBICACIONES_POR_PISO[piso]) {
+                UBICACIONES_POR_PISO[piso].forEach(u => { const opt = document.createElement('option'); opt.value = u; datalist.appendChild(opt); });
+            }
+        }
+        function guardarNuevoActivo() {
+            const piso = document.getElementById('newNuevoPiso').value;
+            const sub = document.getElementById('newNuevaSubUbicacion').value.trim();
+            if (!piso || !sub) { mostrarToast('Seleccione piso y ubicación', 'error'); return; }
+            const codigo = document.getElementById('newCodigo').value.trim() || ('NUEVO-' + Date.now());
+            const resp = document.getElementById('newNuevoResponsable').value.trim();
+            const estado = document.getElementById('newNuevoEstado').value.trim();
+            const obs = document.getElementById('newObservaciones').value.trim();
+            const nuevoActivo = {
+                CODIGOAF: codigo, NOMBREAF: '', DESCAF: '', 'NOM UBICACION': '', 'NOM RESP ANT': '', ESTADOAF: '', 'OBSERV ESTADO': estado,
+                _id: generarIdUnico('new_'), _estadoInventario: 'nuevo', _nuevaUbicacion: sub, _nuevoResponsable: resp, _nuevoEstado: estado, _observaciones: obs
+            };
+            activosDB.push(nuevoActivo);
+            reconstruirMapa(); guardarEnLocalStorage(); actualizarDashboard(); actualizarTablaHistorial();
+            mostrarToast('✅ Nuevo activo agregado'); closeNewAssetForm();
+        }
+
+        // ===================== BÚSQUEDA Y NAVEGACIÓN =====================
+        function buscarActivo() {
+            const codigo = document.getElementById('searchInput').value.trim();
+            if (!codigo) return;
+            const activo = activosMap[codigo];
+            if (activo) { resultadosBusqueda = [activo]; indiceNavegacion = 0; mostrarActivo(activo); return; }
+            const resultados = activosDB.filter(a => (a.CODIGOAF||'').toLowerCase().includes(codigo.toLowerCase()));
+            if (resultados.length === 1) { resultadosBusqueda = resultados; indiceNavegacion = 0; mostrarActivo(resultados[0]); }
+            else if (resultados.length > 1) { resultadosBusqueda = resultados; indiceNavegacion = 0; mostrarActivo(resultados[0]); mostrarToast(`🔍 ${resultados.length} resultados`); }
+            else { mostrarToast('❌ No encontrado'); }
+            document.getElementById('clearSearchBtn').style.display = 'inline-flex';
+        }
+        function limpiarBusqueda() {
+            const input = document.getElementById('searchInput');
+            input.value = '';
+            document.getElementById('assetDetail').classList.remove('active');
+            activoActual = null; resultadosBusqueda = []; indiceNavegacion = -1;
+            document.getElementById('clearSearchBtn').style.display = 'none';
+        }
+        function prepararBusqueda() {
+            const input = document.getElementById('searchInput');
+            input.value = '';
+            setTimeout(() => {
+                input.value = 'E';
+                input.focus();
+                input.setSelectionRange(1, 1);
+                input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 50);
+            document.getElementById('assetDetail').classList.remove('active');
+            activoActual = null; resultadosBusqueda = []; indiceNavegacion = -1;
+            document.getElementById('clearSearchBtn').style.display = 'none';
+        }
+        function buscarPrimerPendiente() {
+            const pendientes = activosDB.filter(a => a._estadoInventario === 'pendiente');
+            if (!pendientes.length) { mostrarToast('🎉 Todos inventariados'); return; }
+            resultadosBusqueda = pendientes; indiceNavegacion = 0; mostrarActivo(pendientes[0]);
+            document.getElementById('clearSearchBtn').style.display = 'inline-flex';
+        }
+        function navegarActivo(dir) {
+            if (!resultadosBusqueda.length) return;
+            indiceNavegacion = (indiceNavegacion + dir + resultadosBusqueda.length) % resultadosBusqueda.length;
+            mostrarActivo(resultadosBusqueda[indiceNavegacion]);
+        }
+        function mostrarActivo(activo) {
+            activoActual = activo;
+            document.getElementById('assetDetail').classList.add('active');
+            document.getElementById('assetCode').textContent = activo.CODIGOAF || '-';
+            document.getElementById('assetNombre').textContent = activo.NOMBREAF || '(Nuevo)';
+            document.getElementById('assetDescripcion').textContent = activo.DESCAF || '';
+            document.getElementById('assetUbicacion').textContent = obtenerUbicacionOriginal(activo);
+            document.getElementById('assetResponsable').textContent = obtenerResponsableOriginal(activo);
+            document.getElementById('assetEstadoOriginal').textContent = obtenerEstadoOriginal(activo);
+            const badge = document.getElementById('assetStatusBadge');
+            badge.className = 'asset-status-badge';
+            const est = activo._estadoInventario || 'pendiente';
+            if (est === 'sin_cambio') { badge.classList.add('badge-sin-cambio'); badge.textContent = '✅ SIN CAMBIOS'; }
+            else if (est === 'con_cambio') { badge.classList.add('badge-cambio'); badge.textContent = '🔄 CON CAMBIOS'; }
+            else if (est === 'nuevo') { badge.classList.add('badge-nuevo'); badge.textContent = '🆕 NUEVO'; }
+            else { badge.classList.add('badge-pendiente'); badge.textContent = '⏳ PENDIENTE'; }
+            document.getElementById('navInfo').textContent = resultadosBusqueda.length > 1 ? `${indiceNavegacion+1}/${resultadosBusqueda.length}` : '';
+            document.getElementById('nuevoResponsable').value = activo._nuevoResponsable || '';
+            document.getElementById('nuevoEstado').value = activo._nuevoEstado || '';
+            document.getElementById('observaciones').value = activo._observaciones || '';
+            const nuevaUb = activo._nuevaUbicacion || '';
+            let pisoSel = '';
+            for (let [piso, ubs] of Object.entries(UBICACIONES_POR_PISO)) { if (ubs.includes(nuevaUb)) { pisoSel = piso; break; } }
+            document.getElementById('nuevoPiso').value = pisoSel;
+            actualizarSubUbicaciones();
+            document.getElementById('nuevaSubUbicacion').value = nuevaUb;
+            document.getElementById('searchInput').value = activo.CODIGOAF || '';
+            document.getElementById('clearSearchBtn').style.display = 'inline-flex';
+        }
+        function actualizarSubUbicaciones() {
+            const piso = document.getElementById('nuevoPiso').value;
+            const datalist = document.getElementById('subUbicacionesList');
+            datalist.innerHTML = '';
+            if (piso && UBICACIONES_POR_PISO[piso]) {
+                UBICACIONES_POR_PISO[piso].forEach(u => { const opt = document.createElement('option'); opt.value = u; datalist.appendChild(opt); });
+            }
+        }
+
+        // ===================== GUARDAR / MARCAR =====================
+        function guardarCambios() {
+            if (!activoActual) return;
+            const piso = document.getElementById('nuevoPiso').value;
+            const sub = document.getElementById('nuevaSubUbicacion').value.trim();
+            const resp = document.getElementById('nuevoResponsable').value.trim();
+            const estadoSeleccionado = document.getElementById('nuevoEstado').value.trim();
+            const obs = document.getElementById('observaciones').value.trim();
+            const ubicacionOriginal = obtenerUbicacionOriginal(activoActual);
+            const responsableOriginal = obtenerResponsableOriginal(activoActual);
+            const estadoOriginal = obtenerEstadoOriginal(activoActual);
+            const nuevaUb = sub || ubicacionOriginal;
+            const nuevoResp = resp || responsableOriginal;
+            const nuevoEstado = estadoSeleccionado || estadoOriginal;
+            const tipo = (nuevaUb !== ubicacionOriginal || nuevoResp !== responsableOriginal || nuevoEstado !== estadoOriginal || obs !== '') ? 'con_cambio' : 'sin_cambio';
+            Object.assign(activoActual, {_estadoInventario: tipo, _nuevaUbicacion: nuevaUb, _nuevoResponsable: nuevoResp, _nuevoEstado: nuevoEstado, _observaciones: obs});
+            const reg = {codigo: activoActual.CODIGOAF, nombre: activoActual.NOMBREAF, ubicacionOriginal, nuevaUbicacion: nuevaUb, responsableOriginal, nuevoResponsable: nuevoResp, estado: nuevoEstado, tipo, observaciones: obs, _id: activoActual._id};
+            const idx = historialInventario.findIndex(h => h._id === reg._id);
+            if (idx>=0) historialInventario[idx] = reg; else historialInventario.push(reg);
+            guardarEnLocalStorage(); actualizarDashboard(); actualizarTablaHistorial();
+            mostrarToast('✅ Guardado');
+            setTimeout(() => buscarPrimerPendiente(), 800);
+        }
+        function marcarSinCambios() {
+            if (!activoActual) return;
+            const ubicacionOriginal = obtenerUbicacionOriginal(activoActual);
+            const responsableOriginal = obtenerResponsableOriginal(activoActual);
+            const estadoOriginal = obtenerEstadoOriginal(activoActual);
+            Object.assign(activoActual, {_estadoInventario:'sin_cambio', _nuevaUbicacion: ubicacionOriginal, _nuevoResponsable: responsableOriginal, _nuevoEstado: estadoOriginal, _observaciones:''});
+            const reg = {codigo: activoActual.CODIGOAF, nombre: activoActual.NOMBREAF, ubicacionOriginal, nuevaUbicacion: ubicacionOriginal, responsableOriginal, nuevoResponsable: responsableOriginal, estado: estadoOriginal, tipo:'sin_cambio', observaciones:'', _id: activoActual._id};
+            const idx = historialInventario.findIndex(h => h._id === reg._id);
+            if (idx>=0) historialInventario[idx] = reg; else historialInventario.push(reg);
+            guardarEnLocalStorage(); actualizarDashboard(); actualizarTablaHistorial();
+            mostrarToast('✅ Sin cambios');
+            setTimeout(() => buscarPrimerPendiente(), 800);
+        }
+        function limpiarFormulario() {
+            document.getElementById('nuevoPiso').value=''; actualizarSubUbicaciones();
+            document.getElementById('nuevaSubUbicacion').value=''; document.getElementById('nuevoResponsable').value='';
+            document.getElementById('nuevoEstado').value=''; document.getElementById('observaciones').value='';
+        }
+
+        function actualizarDashboard() {
+            const total = activosDB.length;
+            const pendientes = activosDB.filter(a=>a._estadoInventario==='pendiente').length;
+            const sin = activosDB.filter(a=>a._estadoInventario==='sin_cambio').length;
+            const con = activosDB.filter(a=>a._estadoInventario==='con_cambio').length;
+            const nuevos = activosDB.filter(a=>a._estadoInventario==='nuevo').length;
+            const inventariados = sin + con + nuevos;
+            const pct = total ? Math.round((inventariados / total) * 100) : 0;
+            document.getElementById('totalActivos').textContent = total;
+            document.getElementById('pendientes').textContent = pendientes;
+            document.getElementById('inventariados').textContent = inventariados;
+            document.getElementById('conCambios').textContent = con;
+            document.getElementById('porcentajeProgreso').textContent = pct + '%';
+            document.getElementById('progressBar').style.width = pct + '%';
+            document.getElementById('progressBar').textContent = pct > 0 ? pct + '%' : '';
+            document.getElementById('progressText').textContent = `${inventariados} de ${total} activos inventariados`;
+        }
+
+        // ===================== FILTROS =====================
+        function toggleStateFilter(tipo, el) {
+            if (filtroEstado === tipo) { if (tipo === 'inventariados') return; filtroEstado = 'inventariados'; }
+            else { filtroEstado = tipo; }
+            document.querySelectorAll('.filter-chip[data-filter]').forEach(c => c.classList.remove('active'));
+            document.querySelector(`.filter-chip[data-filter="${filtroEstado}"]`).classList.add('active');
+            actualizarTablaHistorial();
+        }
+        function cambiarFiltroPiso() { filtroPiso = document.getElementById('filtroPisoSelect').value || null; actualizarSelectUbicaciones(); document.getElementById('filtroUbicacionSelect').value = ''; filtroUbicacion = null; actualizarTablaHistorial(); }
+        function cambiarFiltroUbicacion() { filtroUbicacion = document.getElementById('filtroUbicacionSelect').value || null; actualizarTablaHistorial(); }
+        function cambiarFiltroResponsable() { filtroResponsable = document.getElementById('filtroResponsableInput').value.trim().toLowerCase(); actualizarTablaHistorial(); }
+        function limpiarFiltros() {
+            filtroEstado = 'inventariados';
+            document.querySelectorAll('.filter-chip[data-filter]').forEach(c => c.classList.remove('active'));
+            document.querySelector('.filter-chip[data-filter="inventariados"]').classList.add('active');
+            document.getElementById('filtroPisoSelect').value = ''; filtroPiso = null;
+            actualizarSelectUbicaciones();
+            document.getElementById('filtroUbicacionSelect').value = ''; filtroUbicacion = null;
+            document.getElementById('filtroResponsableInput').value = ''; filtroResponsable = '';
+            actualizarTablaHistorial();
+        }
+        function poblarDatalistResponsables() {
+            const datalist = document.getElementById('filtroResponsableList');
+            datalist.innerHTML = '';
+            LISTA_RESPONSABLES.forEach(n => { const o = document.createElement('option'); o.value = n; datalist.appendChild(o); });
+        }
+        function poblarDatalistsFormulario() {
+            const dl1 = document.getElementById('responsablesList');
+            const dl2 = document.getElementById('newResponsablesList');
+            dl1.innerHTML = ''; dl2.innerHTML = '';
+            LISTA_RESPONSABLES.forEach(n => { const o = document.createElement('option'); o.value = n; dl1.appendChild(o); dl2.appendChild(o.cloneNode(true)); });
+        }
+        function actualizarSelectUbicaciones() {
+            const sel = document.getElementById('filtroUbicacionSelect');
+            sel.innerHTML = '<option value="">📍 Todas las ubicaciones</option>';
+            const piso = document.getElementById('filtroPisoSelect').value;
+            if (piso && UBICACIONES_POR_PISO[piso]) {
+                UBICACIONES_POR_PISO[piso].forEach(u => { const o = document.createElement('option'); o.value = u; o.textContent = u; sel.appendChild(o); });
+            } else {
+                for (let p in UBICACIONES_POR_PISO) { UBICACIONES_POR_PISO[p].forEach(u => { const o = document.createElement('option'); o.value = u; o.textContent = u; sel.appendChild(o); }); }
+            }
+        }
+
+        function actualizarTablaHistorial() {
+            const tbody = document.getElementById('historyTableBody');
+            let datos = [...historialInventario].reverse();
+            const pendientesSinRegistro = activosDB.filter(a => a._estadoInventario === 'pendiente' && !datos.some(h => h._id === a._id));
+            pendientesSinRegistro.forEach(a => datos.unshift({ codigo: a.CODIGOAF, nombre: a.NOMBREAF, ubicacionOriginal: obtenerUbicacionOriginal(a), nuevaUbicacion: '', nuevoResponsable: '', estado: obtenerEstadoOriginal(a), tipo: 'pendiente', observaciones: '', responsableOriginal: obtenerResponsableOriginal(a), _id: a._id }));
+            const nuevosSinRegistro = activosDB.filter(a => a._estadoInventario === 'nuevo' && !datos.some(h => h._id === a._id));
+            nuevosSinRegistro.forEach(a => datos.unshift({ codigo: a.CODIGOAF, nombre: a.NOMBREAF || '(Nuevo)', ubicacionOriginal: '', nuevaUbicacion: a._nuevaUbicacion, nuevoResponsable: a._nuevoResponsable, estado: a._nuevoEstado || '', tipo: 'nuevo', observaciones: a._observaciones, responsableOriginal: '', _id: a._id }));
+
+            if (filtroEstado === 'inventariados') datos = datos.filter(h => h.tipo === 'sin_cambio' || h.tipo === 'con_cambio' || h.tipo === 'nuevo');
+            else if (filtroEstado !== 'todos') datos = datos.filter(h => h.tipo === filtroEstado);
+            if (filtroPiso) {
+                datos = datos.filter(h => {
+                    if (h.tipo === 'pendiente') return UBICACIONES_POR_PISO[filtroPiso]?.some(u => (h.ubicacionOriginal||'').includes(u));
+                    else if (h.tipo === 'nuevo') return UBICACIONES_POR_PISO[filtroPiso]?.includes(h.nuevaUbicacion);
+                    else return UBICACIONES_POR_PISO[filtroPiso]?.includes(h.nuevaUbicacion);
+                });
+            }
+            if (filtroUbicacion) {
+                datos = datos.filter(h => h.nuevaUbicacion === filtroUbicacion || h.ubicacionOriginal === filtroUbicacion);
+            }
+            if (filtroResponsable) {
+                datos = datos.filter(h => {
+                    const orig = (h.responsableOriginal || '').toLowerCase();
+                    const nuevo = (h.nuevoResponsable || '').toLowerCase();
+                    return orig.includes(filtroResponsable) || nuevo.includes(filtroResponsable);
+                });
+            }
+            if (!datos.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty-state">📭 Sin registros</td></tr>'; return; }
+            tbody.innerHTML = datos.map(h => {
+                let responsableMostrar = (h.tipo === 'pendiente' || h.tipo === 'sin_cambio') ? (h.responsableOriginal || '') : (h.nuevoResponsable || h.responsableOriginal || '');
+                const idUnico = h._id || '';
+                return `<tr class="${h.tipo==='con_cambio'?'con-cambio': (h.tipo==='pendiente'?'pendiente': (h.tipo==='nuevo'?'nuevo':'inventariado'))}">
+                    <td><strong>${h.codigo}</strong></td><td>${h.nombre||''}</td><td>${h.ubicacionOriginal||''}</td><td>${h.nuevaUbicacion||''}</td><td>${responsableMostrar}</td><td>${h.estado||''}</td>
+                    <td>${h.tipo==='con_cambio'?'🔄 Con cambios': (h.tipo==='pendiente'?'⏳ Pendiente': (h.tipo==='nuevo'?'🆕 Nuevo':'✅ Sin cambios'))}</td>
+                    <td><button class="action-btn" onclick="eliminarRegistro('${idUnico}')" title="Eliminar">🗑️</button><button class="action-btn" onclick="editarRegistro('${idUnico}')" title="Editar">✏️</button></td></tr>`;
+            }).join('');
+        }
+
+        function eliminarRegistro(id) {
+            if (!confirm('¿Eliminar este registro?')) return;
+            const activo = activosDB.find(a => a._id === id);
+            if (activo) {
+                if (activo._estadoInventario === 'nuevo') activosDB = activosDB.filter(a => a._id !== id);
+                else { activo._estadoInventario = 'pendiente'; activo._nuevaUbicacion = ''; activo._nuevoResponsable = ''; activo._nuevoEstado = ''; activo._observaciones = ''; }
+                reconstruirMapa();
+            }
+            historialInventario = historialInventario.filter(h => h._id !== id);
+            guardarEnLocalStorage(); actualizarDashboard(); actualizarTablaHistorial();
+            mostrarToast('Registro eliminado');
+        }
+        function editarRegistro(id) {
+            const activo = activosDB.find(a => a._id === id);
+            if (!activo) return;
+            resultadosBusqueda = [activo]; indiceNavegacion = 0; mostrarActivo(activo);
+            document.getElementById('assetDetail').scrollIntoView({behavior:'smooth'});
+        }
+        function limpiarHistorial() {
+            if (confirm('¿Limpiar TODO el historial? Los activos volverán a pendiente (excepto nuevos, que serán eliminados).')) {
+                activosDB = activosDB.filter(a => a._estadoInventario !== 'nuevo');
+                activosDB.forEach(a => { a._estadoInventario = 'pendiente'; a._nuevaUbicacion = ''; a._nuevoResponsable = ''; a._nuevoEstado = ''; a._observaciones = ''; });
+                historialInventario = [];
+                reconstruirMapa(); guardarEnLocalStorage(); actualizarDashboard(); actualizarTablaHistorial();
+                mostrarToast('Historial y nuevos activos eliminados');
+            }
+        }
+
+        // ===================== EXPORTAR / GUARDAR =====================
+        function descargarXLSX(wb, nombreArchivo) {
+            const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+            const blob = new Blob([wbout], { type: 'application/octet-stream' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = nombreArchivo;
+            document.body.appendChild(a); a.click();
+            setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+        }
+        function guardarProgresoXLSX() {
+            if (!activosDB.length) { mostrarToast('⚠️ Sin datos'); return; }
+            const activosInventario = activosDB.filter(a => a._estadoInventario !== 'nuevo');
+            const nuevosActivos = activosDB.filter(a => a._estadoInventario === 'nuevo');
+            const hojaInventario = activosInventario.map(a => ({
+                CODIGOAF: a.CODIGOAF, NOMBREAF: a.NOMBREAF, DESCAF: a.DESCAF,
+                'UBICACION ORIGINAL': obtenerUbicacionOriginal(a), 'RESPONSABLE ORIGINAL': obtenerResponsableOriginal(a), 'ESTADO ORIGINAL': obtenerEstadoOriginal(a),
+                'NUEVA UBICACION': a._estadoInventario === 'pendiente' ? '' : a._nuevaUbicacion,
+                'NUEVO RESPONSABLE': a._estadoInventario === 'pendiente' ? '' : a._nuevoResponsable,
+                'NUEVO ESTADO': a._estadoInventario === 'pendiente' ? '' : (a._nuevoEstado || obtenerEstadoOriginal(a)),
+                OBSERVACIONES: a._estadoInventario === 'pendiente' ? '' : a._observaciones,
+                'ESTADO INVENTARIO': a._estadoInventario,
+                '_id': a._id
+            }));
+            const hojaNuevos = nuevosActivos.map(a => ({
+                CODIGOAF: a.CODIGOAF, NOMBREAF: a.NOMBREAF || '', DESCAF: a.DESCAF || '',
+                'UBICACION ORIGINAL': '', 'RESPONSABLE ORIGINAL': '', 'ESTADO ORIGINAL': '',
+                'NUEVA UBICACION': a._nuevaUbicacion, 'NUEVO RESPONSABLE': a._nuevoResponsable, 'NUEVO ESTADO': a._nuevoEstado,
+                OBSERVACIONES: a._observaciones, 'ESTADO INVENTARIO': 'nuevo', '_id': a._id
+            }));
+            const wb = XLSX.utils.book_new();
+            if (hojaInventario.length) { const ws = XLSX.utils.json_to_sheet(hojaInventario); XLSX.utils.book_append_sheet(wb, ws, 'Inventario'); }
+            if (hojaNuevos.length) { const ws = XLSX.utils.json_to_sheet(hojaNuevos); XLSX.utils.book_append_sheet(wb, ws, 'Nuevos Activos'); }
+            descargarXLSX(wb, 'Progreso_Inventario_2026.xlsx');
+            mostrarToast('💾 Progreso guardado (2 hojas)');
+        }
+        function exportarExcel() { guardarProgresoXLSX(); }
+        function cargarProgresoXLSX(event) {
+            const file = event.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const wb = XLSX.read(data, {type:'array'});
+                if (wb.SheetNames.length > 0) {
+                    const sheetInv = wb.Sheets[wb.SheetNames[0]];
+                    const jsonInv = XLSX.utils.sheet_to_json(sheetInv, {defval:''});
+                    if (jsonInv.length) {
+                        activosDB = jsonInv.map(a => {
+                            const newRow = { ...a, _estadoInventario: a['ESTADO INVENTARIO'] || 'pendiente', _nuevaUbicacion: a['NUEVA UBICACION'] || '', _nuevoResponsable: a['NUEVO RESPONSABLE'] || '', _nuevoEstado: a['NUEVO ESTADO'] || '', _observaciones: a.OBSERVACIONES || '' };
+                            if (a['UBICACION ORIGINAL']) newRow['NOM UBICACION'] = a['UBICACION ORIGINAL'];
+                            if (a['RESPONSABLE ORIGINAL']) newRow['NOM RESP ANT'] = a['RESPONSABLE ORIGINAL'];
+                            if (a['ESTADO ORIGINAL']) newRow['OBSERV ESTADO'] = a['ESTADO ORIGINAL'];
+                            if (!newRow._id) newRow._id = generarIdUnico('imp_');
+                            return newRow;
+                        });
+                        const hojaNuevos = wb.Sheets['Nuevos Activos'];
+                        if (hojaNuevos) {
+                            const jsonNuevos = XLSX.utils.sheet_to_json(hojaNuevos, {defval:''});
+                            jsonNuevos.forEach(a => { 
+                                const nuevo = { ...a, _estadoInventario: 'nuevo', _nuevaUbicacion: a['NUEVA UBICACION'] || '', _nuevoResponsable: a['NUEVO RESPONSABLE'] || '', _nuevoEstado: a['NUEVO ESTADO'] || '', _observaciones: a.OBSERVACIONES || '' };
+                                if (!nuevo._id) nuevo._id = generarIdUnico('new_');
+                                activosDB.push(nuevo);
+                            });
+                        }
+                        reconstruirMapa();
+                    }
+                }
+                const hojaHist = wb.Sheets['Historial'];
+                if (hojaHist) {
+                    const jsonHist = XLSX.utils.sheet_to_json(hojaHist, {defval:''});
+                    historialInventario = jsonHist.map(h => ({
+                        codigo: h.CODIGOAF || h.codigo || '', nombre: h.NOMBREAF || h.nombre || '',
+                        ubicacionOriginal: h['UBICACION ORIGINAL'] || h.ubicacionOriginal || '',
+                        nuevaUbicacion: h['NUEVA UBICACION'] || h.nuevaUbicacion || '',
+                        responsableOriginal: h['RESPONSABLE ORIGINAL'] || h.responsableOriginal || '',
+                        nuevoResponsable: h['NUEVO RESPONSABLE'] || h.nuevoResponsable || '',
+                        estado: h.ESTADO || h.estado || '', tipo: h.TIPO || h.tipo || '', observaciones: h.OBSERVACIONES || h.observaciones || '',
+                        _id: h._id || generarIdUnico('hist_')
+                    }));
+                }
+                guardarEnLocalStorage(); actualizarDashboard(); actualizarTablaHistorial();
+                mostrarToast('📥 Progreso cargado completamente');
+            };
+            reader.readAsArrayBuffer(file);
+        }
+        function extraerHistorial() {
+            const tbody = document.getElementById('historyTableBody');
+            const filas = tbody.querySelectorAll('tr');
+            if (filas.length === 0 || filas[0].querySelector('.empty-state')) { mostrarToast('No hay datos para extraer', 'error'); return; }
+            const datos = [];
+            filas.forEach(fila => { const celdas = fila.querySelectorAll('td'); if (celdas.length >= 7) datos.push({ 'Código': celdas[0].textContent.trim(), 'Nombre': celdas[1].textContent.trim(), 'Ub. Original': celdas[2].textContent.trim(), 'Nueva Ub.': celdas[3].textContent.trim(), 'Responsable Original/Nuevo': celdas[4].textContent.trim(), 'Estado': celdas[5].textContent.trim(), 'Tipo': celdas[6].textContent.trim() }); });
+            if (datos.length === 0) return;
+            const ws = XLSX.utils.json_to_sheet(datos);
+            const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Historial');
+            descargarXLSX(wb, 'Historial_Extraido.xlsx');
+            mostrarToast('📊 Historial extraído correctamente');
+        }
+
+        function toggleMenu() { document.getElementById('menuOverlay').classList.toggle('active'); }
+        function closeMenu(e) { if (e.target === document.getElementById('menuOverlay')) document.getElementById('menuOverlay').classList.remove('active'); }
+        function closeMenuDirect() { document.getElementById('menuOverlay').classList.remove('active'); }
+        function mostrarToast(msg, tipo='info') { const cont = document.getElementById('toastContainer'); const t = document.createElement('div'); t.className = `toast ${tipo}`; t.textContent = msg; cont.appendChild(t); setTimeout(() => t.remove(), 3000); }
+        function mostrarSeccion(sec) {
+            document.querySelectorAll('.bottom-nav .nav-item').forEach(el => el.classList.remove('active'));
+            const items = document.querySelectorAll('.bottom-nav .nav-item');
+            if (sec === 'dashboard') { items[0].classList.add('active'); window.scrollTo({top:0,behavior:'smooth'}); }
+            if (sec === 'historial') { items[2].classList.add('active'); document.querySelector('.history-section').scrollIntoView({behavior:'smooth'}); }
+            if (sec === 'importar') { items[3].classList.add('active'); }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (checkAuth()) { init(); }
+        });
+        document.getElementById('loginPassword').addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') verificarPassword();
+        });
+    </script>
+</body>
+</html>
