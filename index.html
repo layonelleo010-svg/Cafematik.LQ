@@ -1,155 +1,347 @@
+// ============================================
+// CÓDIGO ÚNICO – GOOGLE APPS SCRIPT
+// ============================================
+
+const PASSWORD = "Lquispe2026";
+const SHEET_MAESTRO = "DATOS MAESTROS";
+const SHEET_NUEVOS = "Nuevos";
+const SHEET_HISTORIAL = "Historial";
+
+function doGet(e) {
+  if (e.parameter.auth !== 'ok') {
+    return HtmlService.createHtmlOutput(LOGIN_HTML)
+      .setTitle('Login')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  }
+  return HtmlService.createHtmlOutput(INDEX_HTML)
+    .setTitle('Control de Inventario')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+function verificarPassword(pwd) {
+  return pwd === PASSWORD;
+}
+
+// ============================================
+// HTML DEL LOGIN (integrado como string)
+// ============================================
+const LOGIN_HTML = `
 <!DOCTYPE html>
-<html lang="es">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#4E342E">
-  <title>Café Control</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    /* ----- Estilos generales ----- */
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      background: #F5F0EB;
-      color: #3E2723;
-      padding-bottom: 70px;
-    }
-    .header {
-      background: #4E342E;
-      color: #FFF8F0;
-      padding: 15px;
-      text-align: center;
-      font-size: 1.3rem;
-      font-weight: bold;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-    }
-    .nav {
-      position: fixed; bottom: 0; width: 100%;
-      display: flex; justify-content: space-around;
-      background: #3E2723; padding: 8px 0;
-      box-shadow: 0 -2px 8px rgba(0,0,0,0.2);
-      z-index: 100;
-    }
-    .nav button {
-      background: none; border: none; color: #D7CCC8;
-      font-size: 0.8rem; display: flex; flex-direction: column; align-items: center;
-      padding: 5px 10px; border-radius: 12px; transition: 0.2s;
-    }
-    .nav button.active { color: #FFD54F; background: rgba(255,255,255,0.1); }
-    .nav button svg { width: 24px; height: 24px; margin-bottom: 2px; }
-    .container { padding: 20px; max-width: 600px; margin: 0 auto; }
-    .card {
-      background: #FFFFFF; border-radius: 16px; padding: 16px;
-      margin-bottom: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-    }
-    .card h2 { font-size: 1.1rem; margin-bottom: 8px; color: #4E342E; }
-    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .metric {
-      background: #FFF8F0; border-radius: 12px; padding: 12px; text-align: center;
-    }
-    .metric .value { font-size: 1.5rem; font-weight: bold; color: #4E342E; }
-    .metric .label { font-size: 0.8rem; color: #6D4C41; }
-    .btn {
-      background: #6D4C41; color: white; border: none; border-radius: 25px;
-      padding: 10px 20px; font-size: 0.9rem; cursor: pointer; margin: 5px 2px;
-    }
-    .btn.secondary { background: #A1887F; }
-    input, select {
-      width: 100%; padding: 10px; margin: 5px 0 12px;
-      border: 1px solid #D7CCC8; border-radius: 10px; font-size: 0.95rem;
-      background: #FFF8F0;
-    }
-    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-    th { background: #4E342E; color: white; padding: 8px; }
-    td { padding: 8px; border-bottom: 1px solid #EFEBE9; }
-    .alert { background: #FFF3E0; border-left: 4px solid #FF8F00; padding: 10px; margin: 10px 0; }
-    .hidden { display: none; }
-    .section { display: none; }
-    .section.active { display: block; }
+    body { font-family: 'Segoe UI', Arial; background: #f0f2f5; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; height: 100vh; }
+    .login-box { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 350px; width: 100%; }
+    h2 { text-align: center; color: #1a73e8; }
+    input[type="password"] { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; }
+    button { width: 100%; padding: 12px; background: #1a73e8; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; }
+    .error { color: red; text-align: center; margin-top: 10px; display: none; }
   </style>
 </head>
 <body>
-  <div class="header">☕ Café Control</div>
-
-  <div id="dashboard" class="section active">
-    <div class="container">
-      <div class="card">
-        <h2>📊 Resumen Hoy</h2>
-        <div class="grid2">
-          <div class="metric"><div class="value" id="hoyVentas">--</div><div class="label">Ventas Bs</div></div>
-          <div class="metric"><div class="value" id="hoyGanancia">--</div><div class="label">Ganancia Bs</div></div>
-          <div class="metric"><div class="value" id="hoyMargen">--</div><div class="label">Margen %</div></div>
-          <div class="metric"><div class="value" id="hoyVasos">--</div><div class="label">Vasos totales</div></div>
-        </div>
-      </div>
-      <div class="card">
-        <h2>⚖️ Punto de Equilibrio</h2>
-        <div class="metric" style="background:#EFEBE9"><span class="value" id="pEquilibrio">--</span><br><span class="label">vasos necesarios/mes</span></div>
-        <div id="barraProgreso" style="height:10px; background:#D7CCC8; border-radius:5px; margin-top:8px;">
-          <div id="progresoFill" style="height:100%; width:0%; background:#4CAF50; border-radius:5px;"></div>
-        </div>
-      </div>
-    </div>
+  <div class="login-box">
+    <h2>Control de Inventario</h2>
+    <input type="password" id="pwd" placeholder="Contraseña" onkeydown="if(event.key==='Enter')verificar()">
+    <button onclick="verificar()">Ingresar</button>
+    <div class="error" id="error">Contraseña incorrecta</div>
   </div>
-
-  <div id="ventas" class="section">
-    <div class="container">
-      <div class="card">
-        <h2>📝 Registrar Ventas</h2>
-        <label>Fecha</label><input type="date" id="fechaVenta">
-        <div id="productosVenta"></div>
-        <button class="btn" onclick="registrarVenta()">💾 Guardar Venta</button>
-      </div>
-      <div class="card">
-        <h2>📋 Historial de Ventas</h2>
-        <div id="historialVentas"></div>
-      </div>
-    </div>
-  </div>
-
-  <div id="inventario" class="section">
-    <div class="container">
-      <div class="card">
-        <h2>🧾 Insumos</h2>
-        <div id="listaInsumos"></div>
-        <button class="btn secondary" onclick="agregarInsumo()">+ Nuevo insumo</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="gastos" class="section">
-    <div class="container">
-      <div class="card">
-        <h2>🧾 Gastos Operativos</h2>
-        <label>Descripción</label><input id="descGasto" placeholder="Alquiler, pasajes...">
-        <label>Monto (Bs)</label><input type="number" id="montoGasto" step="0.01">
-        <label>Fecha</label><input type="date" id="fechaGasto">
-        <button class="btn" onclick="registrarGasto()">➕ Añadir</button>
-        <div id="listaGastos" style="margin-top:15px;"></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="nav">
-    <button onclick="showSection('dashboard')" class="active" id="btnDash">
-      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3,13H11V3H3V13M13,21H21V11H13V21M13,3V9H21V3H13M3,21H11V15H3V21Z"/></svg> Inicio
-    </button>
-    <button onclick="showSection('ventas')" id="btnVentas">
-      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20,2H4C2.9,2,2,2.9,2,4V22L6,18H20C21.1,18,22,17.1,22,16V4C22,2.9,21.1,2,20,2M20,16H5.2L4,17.2V4H20V16Z"/></svg> Ventas
-    </button>
-    <button onclick="showSection('inventario')" id="btnInventario">
-      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3,4H21V8H19V20H5V8H3V4M8,8H16V10H8V8M8,12H16V14H8V12M8,16H13V18H8V16"/></svg> Insumos
-    </button>
-    <button onclick="showSection('gastos')" id="btnGastos">
-      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4M11,17V16H9V14H13V13H10A2,2 0 0,1 8,11V9A2,2 0 0,1 10,7H11V6H13V7H15V9H11V10H14A2,2 0 0,1 16,12V14A2,2 0 0,1 14,16H13V17H11Z"/></svg> Gastos
-    </button>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/idb@7/build/umd.js"></script>
   <script>
-    // ----- Lógica de la aplicación (app.js) -----
-    // (El código completo de la app está en la siguiente sección)
+    function verificar() {
+      var pwd = document.getElementById('pwd').value;
+      google.script.run.withSuccessHandler(function(ok) {
+        if (ok) window.open('<?= ScriptApp.getService().getUrl() ?>?auth=ok', '_self');
+        else document.getElementById('error').style.display = 'block';
+      }).verificarPassword(pwd);
+    }
   </script>
 </body>
 </html>
+`;
+
+// ============================================
+// HTML DE LA APLICACIÓN PRINCIPAL
+// ============================================
+const INDEX_HTML = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: 'Segoe UI', Arial; background: #f0f2f5; margin: 0; padding: 15px; }
+    .header { background: #1a73e8; color: white; padding: 15px; text-align: center; border-radius: 10px; margin-bottom: 20px; }
+    .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
+    #codigo { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 16px; }
+    button { background: #1a73e8; color: white; border: none; padding: 12px 20px; border-radius: 6px; font-size: 16px; cursor: pointer; }
+    #resultado { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); min-height: 200px; }
+    select, input[type="text"] { width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 6px; }
+    label { font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Control de Inventario</h1>
+  </div>
+  <div class="search-box">
+    <input type="text" id="codigo" placeholder="Ingrese código (ej: O178)">
+    <button onclick="buscar()">Buscar</button>
+    <button onclick="limpiar()">Nuevo</button>
+    <button onclick="exportarHistorial()">Exportar historial</button>
+  </div>
+  <div id="resultado">
+    <p>Utilice el buscador para consultar o agregar activos.</p>
+  </div>
+  <div id="error" style="color:red;"></div>
+  <script>
+    function buscar() {
+      var cod = document.getElementById('codigo').value.trim();
+      if (!cod) return;
+      google.script.run
+        .withSuccessHandler(function(html) { document.getElementById('resultado').innerHTML = html; })
+        .withFailureHandler(function(err) { document.getElementById('error').textContent = err.message; })
+        .procesarBusqueda(cod);
+    }
+    function limpiar() {
+      document.getElementById('codigo').value = 'O';
+      document.getElementById('codigo').focus();
+      document.getElementById('resultado').innerHTML = '';
+    }
+    function exportarHistorial() {
+      google.script.run.withSuccessHandler(function(msg) { alert(msg); }).exportarHistorial();
+    }
+  </script>
+</body>
+</html>
+`;
+
+// ============================================
+// FUNCIONES DEL SERVIDOR
+// ============================================
+
+function inicializarApp() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  // Hoja de responsables
+  var respSheet = ss.getSheetByName("Responsables");
+  if (!respSheet) {
+    respSheet = ss.insertSheet("Responsables");
+    respSheet.getRange("A1").setValue("Responsable");
+    var responsables = [
+      "AGUIRRE, MAGDA","ANAVE, RICARDO","ANTEQUERA, GABRIEL MAURICIO",
+      "CANAVIRI, LUISA SALOME","FLORES, PERCY LUCAS","GARCIA, ZULEMA",
+      "LAZO, ALEJANDRO IGNACIO","MOLLINEDO, EDSON CRHISTIAN",
+      "SOTO, MADAI","ZAMBRANA, ANGELO FELIX","QUISPE, LEONEL RODRIGO"
+    ];
+    respSheet.getRange(2, 1, responsables.length, 1).setValues(responsables.map(function(r) { return [r]; }));
+  }
+  // Hoja de ubicaciones
+  var ubicSheet = ss.getSheetByName("Ubicaciones");
+  if (!ubicSheet) {
+    ubicSheet = ss.insertSheet("Ubicaciones");
+    ubicSheet.getRange("A1:B1").setValues([["Bloque/Piso","Nombre"]]);
+    var ubicaciones = [
+      ["BLOQUE A","AMBIENTE GENERICO"],["BLOQUE A","AMBIENTE 1"],["BLOQUE A","AMBIENTE 2"],
+      ["BLOQUE A","AMBIENTE 3"],["BLOQUE A","AMBIENTE 4"],["BLOQUE A","AMBIENTE 5"],
+      ["BLOQUE A","AMBIENTE 6"],["BLOQUE A","AMBIENTE 7"],["BLOQUE A","AMBIENTE 8"],
+      ["BLOQUE A","AMBIENTE 9"],["BLOQUE A","AMBIENTE 10"],["BLOQUE A","AMBIENTE 11"],
+      ["PLANTA BAJA","AULA 1"],["PLANTA BAJA","AULA 2"],
+      ["PLANTA BAJA","LABORATORIO 1"],["PLANTA BAJA","LABORATORIO 2"],["PLANTA BAJA","LABORATORIO 3"],
+      ["PLANTA BAJA","PASILLO"],["PLANTA BAJA","PATIO"],["PLANTA BAJA","RECEPCION"],["PLANTA BAJA","REDES 1"],
+      ["PISO 1","AULA 3"],["PISO 1","AULA 4"],["PISO 1","COMEDOR"],
+      ["PISO 1","PASILLO"],["PISO 1","REDES 2"],
+      ["PISO 2","AULA 5"],["PISO 2","AULA 6"],["PISO 2","DIRECCION DE CARRERA"],
+      ["PISO 2","PASILLO"],["PISO 2","SALA DE ESTUDIO"],
+      ["PISO 3","CAPILLA"],
+      ["SUBTERRANEO","ANFITEATRO"],["SUBTERRANEO","LABORATORIO"],["SUBTERRANEO","OSTEOTECA"],
+      ["SUBTERRANEO","PASILLO"],["SUBTERRANEO","RAMPA"],["SUBTERRANEO","SALA FRIA"]
+    ];
+    ubicSheet.getRange(2, 1, ubicaciones.length, 2).setValues(ubicaciones);
+  }
+}
+
+function onOpen() {
+  inicializarApp();
+  SpreadsheetApp.getUi()
+    .createMenu('Control Inventario')
+    .addItem('Generar hoja Progreso', 'generarProgreso')
+    .addItem('Exportar historial', 'exportarHistorial')
+    .addToUi();
+}
+
+function getResponsables() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("Responsables");
+  if (!sheet) return [];
+  var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+  return data.flat().filter(function(r) { return r; });
+}
+
+function getUbicaciones() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("Ubicaciones");
+  if (!sheet) return [];
+  var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).getValues();
+  return data.map(function(fila) { return fila[0] + " - " + fila[1]; }).filter(function(u) { return u; });
+}
+
+function procesarBusqueda(codigo) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var master = ss.getSheetByName(SHEET_MAESTRO);
+  var data = master.getDataRange().getValues();
+  var encontrado = null;
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0].toString() === codigo) {
+      encontrado = data[i];
+      break;
+    }
+  }
+  if (encontrado) {
+    return construirVistaActivo(encontrado);
+  } else {
+    return formNuevoActivo(codigo);
+  }
+}
+
+function construirVistaActivo(fila) {
+  var codigo = fila[0];
+  return '<h3>Código: ' + codigo + '</h3>' +
+    '<p><b>Nombre:</b> ' + (fila[4] || '') + '</p>' +
+    '<p><b>Descripción:</b> ' + (fila[5] || '') + '</p>' +
+    '<p><b>Ubicación original:</b> ' + (fila[13] || fila[12] || 'No definida') + '</p>' +
+    '<p><b>Responsable original:</b> ' + (fila[15] || '') + '</p>' +
+    '<p><b>Estado original:</b> ' + (fila[11] || '') + '</p>' +
+    '<hr>' +
+    '<h4>Actualizar información</h4>' +
+    '<label>Nueva ubicación:</label>' +
+    '<select id="nub_' + codigo + '"></select>' +
+    '<label>Nuevo responsable:</label>' +
+    '<select id="nre_' + codigo + '"></select>' +
+    '<label>Observaciones:</label>' +
+    '<input type="text" id="obs_' + codigo + '" placeholder="Opcional">' +
+    '<button onclick="actActivo(\'' + codigo + '\')">Guardar cambios</button>' +
+    '<span id="msg_' + codigo + '"></span>' +
+    '<script>' +
+      'google.script.run.withSuccessHandler(function(r) {' +
+        'var sel = document.getElementById("nub_' + codigo + '");' +
+        'sel.innerHTML = "<option value=\\"\\">-- Seleccionar --</option>";' +
+        'r.forEach(function(u) { var o = document.createElement("option"); o.value = u; o.textContent = u; sel.appendChild(o); });' +
+      '}).getUbicaciones();' +
+      'google.script.run.withSuccessHandler(function(r) {' +
+        'var sel = document.getElementById("nre_' + codigo + '");' +
+        'sel.innerHTML = "<option value=\\"\\">-- Seleccionar --</option>";' +
+        'r.forEach(function(res) { var o = document.createElement("option"); o.value = res; o.textContent = res; sel.appendChild(o); });' +
+      '}).getResponsables();' +
+      'function actActivo(cod) {' +
+        'var nub = document.getElementById("nub_"+cod).value;' +
+        'var nre = document.getElementById("nre_"+cod).value;' +
+        'var obs = document.getElementById("obs_"+cod).value;' +
+        'google.script.run.withSuccessHandler(function(msg) {' +
+          'document.getElementById("msg_"+cod).innerHTML = "<span style=color:green>"+msg+"</span>";' +
+        '}).registrarActualizacion(cod, nub, nre, obs);' +
+      '}' +
+    '</script>';
+}
+
+function formNuevoActivo(codigo) {
+  return '<h3>Activo no encontrado</h3>' +
+    '<p>Complete los datos para agregar <strong>' + codigo + '</strong> a la lista de nuevos.</p>' +
+    '<label>Nombre:</label><input type="text" id="nomNew">' +
+    '<label>Descripción:</label><input type="text" id="descNew">' +
+    '<label>Ubicación:</label><select id="ubicNew"></select>' +
+    '<label>Responsable:</label><select id="respNew"></select>' +
+    '<button onclick="guardarNuevo(\'' + codigo + '\')">Guardar nuevo activo</button>' +
+    '<span id="msgNew"></span>' +
+    '<script>' +
+      'google.script.run.withSuccessHandler(function(r) {' +
+        'var sel = document.getElementById("ubicNew");' +
+        'sel.innerHTML = "<option value=\\"\\">-- Seleccionar --</option>";' +
+        'r.forEach(function(u) { var o = document.createElement("option"); o.value = u; o.textContent = u; sel.appendChild(o); });' +
+      '}).getUbicaciones();' +
+      'google.script.run.withSuccessHandler(function(r) {' +
+        'var sel = document.getElementById("respNew");' +
+        'sel.innerHTML = "<option value=\\"\\">-- Seleccionar --</option>";' +
+        'r.forEach(function(res) { var o = document.createElement("option"); o.value = res; o.textContent = res; sel.appendChild(o); });' +
+      '}).getResponsables();' +
+      'function guardarNuevo(cod) {' +
+        'var nombre = document.getElementById("nomNew").value;' +
+        'var desc = document.getElementById("descNew").value;' +
+        'var ubic = document.getElementById("ubicNew").value;' +
+        'var resp = document.getElementById("respNew").value;' +
+        'google.script.run.withSuccessHandler(function(msg) {' +
+          'document.getElementById("msgNew").innerHTML = "<span style=color:green>"+msg+"</span>";' +
+        '}).guardarNuevoActivo(cod, nombre, desc, ubic, resp);' +
+      '}' +
+    '</script>';
+}
+
+function guardarNuevoActivo(codigo, nombre, desc, ubic, resp) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var nuevos = ss.getSheetByName(SHEET_NUEVOS);
+  if (!nuevos) throw new Error('Falta la hoja "Nuevos".');
+  var data = nuevos.getDataRange().getValues();
+  for (var i = 0; i < data.length; i++) {
+    if (data[i][0].toString() === codigo) return 'El código ya existe.';
+  }
+  nuevos.appendRow([codigo, '', '', '', nombre, desc, '', '', '', '', '', '', '', '', '', '', '', '', '', '', ubic, resp, '', '']);
+  registrarHistorial(codigo, "AGREGADO", "Nuevo: " + nombre + ", " + desc + ", Ubic: " + ubic + ", Resp: " + resp);
+  return '✅ Activo ' + codigo + ' agregado correctamente.';
+}
+
+function registrarActualizacion(codigo, nuevaUbicacion, nuevoResponsable, obs) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var master = ss.getSheetByName(SHEET_MAESTRO);
+  var data = master.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0].toString() === codigo) {
+      master.getRange(i + 1, 23).setValue(nuevaUbicacion);
+      master.getRange(i + 1, 24).setValue(nuevoResponsable);
+      master.getRange(i + 1, 25).setValue(obs);
+      registrarHistorial(codigo, "ACTUALIZADO", "Ubic: " + nuevaUbicacion + ", Resp: " + nuevoResponsable + ", Obs: " + obs);
+      return "✅ Cambios guardados.";
+    }
+  }
+  return "❌ No encontrado.";
+}
+
+function registrarHistorial(codigo, accion, detalle) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var hist = ss.getSheetByName(SHEET_HISTORIAL);
+  if (!hist) {
+    var nueva = ss.insertSheet(SHEET_HISTORIAL);
+    nueva.appendRow(["Fecha", "Código", "Acción", "Detalle"]);
+    return registrarHistorial(codigo, accion, detalle);
+  }
+  hist.insertRowBefore(2);
+  hist.getRange(2, 1, 1, 4).setValues([[new Date(), codigo, accion, detalle]]);
+}
+
+function exportarHistorial() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var hist = ss.getSheetByName(SHEET_HISTORIAL);
+  if (!hist || hist.getLastRow() <= 1) return 'No hay historial que exportar.';
+  var datos = hist.getDataRange().getValues();
+  var nuevoLibro = SpreadsheetApp.create("Historial_exportado_" + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd_HHmmss"));
+  nuevoLibro.getSheets()[0].getRange(1, 1, datos.length, datos[0].length).setValues(datos);
+  return 'Historial exportado exitosamente.';
+}
+
+function generarProgreso() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var maestro = ss.getSheetByName(SHEET_MAESTRO);
+  if (!maestro) throw new Error('No existe hoja "DATOS MAESTROS".');
+  var datos = maestro.getDataRange().getValues();
+  var progreso = [];
+  progreso.push(["CODIGOAF","NOMBREAF","DESCAF","UBICACION ORIGINAL","RESPONSABLE ORIGINAL","ESTADO ORIGINAL","NUEVA UBICACION","NUEVO RESPONSABLE","NUEVO ESTADO","OBSERVACIONES","ESTADO INVENTARIO","FECHA INVENTARIO"]);
+  for (var i = 1; i < datos.length; i++) {
+    var f = datos[i];
+    progreso.push([
+      f[0], f[4], f[5],
+      f[13] || "", f[15] || "", f[11] || "",
+      f[22] || "", f[23] || "", "", f[24] || "", "pendiente", ""
+    ]);
+  }
+  var hojaProg = ss.getSheetByName("Progreso");
+  if (hojaProg) ss.deleteSheet(hojaProg);
+  hojaProg = ss.insertSheet("Progreso");
+  hojaProg.getRange(1,1,progreso.length, progreso[0].length).setValues(progreso);
+  SpreadsheetApp.getUi().alert('Hoja Progreso generada con ubicación original.');
+}
